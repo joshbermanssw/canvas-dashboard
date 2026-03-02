@@ -16,7 +16,11 @@ import {
   addDays,
   isSameDay,
   addWeeks,
+  differenceInWeeks,
 } from 'date-fns';
+
+// Semester start date - Week 1 starts Feb 23, 2026 (March 2-8 is Week 2)
+const SEMESTER_START = new Date(2026, 1, 23); // Feb 23, 2026
 
 export function WorkloadHeatmap() {
   const { data: assignments, loading, error } = useUpcomingAssignments();
@@ -45,6 +49,15 @@ export function WorkloadHeatmap() {
 
     return days;
   }, [assignments]);
+
+  const getSemesterWeek = (weekIndex: number) => {
+    const today = new Date();
+    const currentWeekStart = startOfWeek(today, { weekStartsOn: 0 });
+    const targetWeekStart = addWeeks(currentWeekStart, weekIndex);
+    const semesterStartWeek = startOfWeek(SEMESTER_START, { weekStartsOn: 0 });
+    const weekNumber = differenceInWeeks(targetWeekStart, semesterStartWeek) + 1;
+    return weekNumber;
+  };
 
   const getIntensityClass = (count: number) => {
     if (count === 0) return 'bg-muted';
@@ -94,15 +107,12 @@ export function WorkloadHeatmap() {
         <CardTitle className="flex items-center gap-2">
           <Flame className="h-5 w-5" />
           Workload Heatmap
-          <span className="text-xs font-normal text-muted-foreground ml-2">
-            Next 8 weeks
-          </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex gap-1">
           {/* Day labels */}
-          <div className="flex flex-col gap-1 mr-2">
+          <div className="flex flex-col gap-1 mr-2 mt-5">
             {dayLabels.map((day, i) => (
               <div key={day} className="h-4 text-xs text-muted-foreground flex items-center">
                 {i % 2 === 1 ? day : ''}
@@ -112,44 +122,54 @@ export function WorkloadHeatmap() {
 
           {/* Heatmap grid */}
           <div className="flex gap-1">
-            {Array.from({ length: 8 }).map((_, weekIndex) => (
-              <div key={weekIndex} className="flex flex-col gap-1">
-                {Array.from({ length: 7 }).map((_, dayIndex) => {
-                  const data = heatmapData[weekIndex * 7 + dayIndex];
-                  if (!data) return null;
+            {Array.from({ length: 8 }).map((_, weekIndex) => {
+              const semesterWeek = getSemesterWeek(weekIndex);
+              return (
+                <div key={weekIndex} className="flex flex-col gap-1">
+                  {/* Week label */}
+                  <div className="h-4 text-xs text-muted-foreground text-center font-medium">
+                    W{semesterWeek}
+                  </div>
+                  {/* Days */}
+                  {Array.from({ length: 7 }).map((_, dayIndex) => {
+                    const data = heatmapData[weekIndex * 7 + dayIndex];
+                    if (!data) return null;
 
-                  return (
-                    <Tooltip key={`${weekIndex}-${dayIndex}`}>
-                      <TooltipTrigger asChild>
-                        <div
-                          className={`h-4 w-4 rounded-sm cursor-pointer transition-colors ${getIntensityClass(data.count)}`}
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="text-xs">
-                          <p className="font-medium">{format(data.date, 'MMM d, yyyy')}</p>
-                          {data.count === 0 ? (
-                            <p className="text-muted-foreground">No assignments</p>
-                          ) : (
-                            <>
-                              <p>{data.count} assignment{data.count > 1 ? 's' : ''}</p>
-                              <ul className="mt-1">
-                                {data.assignments.slice(0, 3).map((name, i) => (
-                                  <li key={i} className="truncate max-w-[200px]">• {name}</li>
-                                ))}
-                                {data.assignments.length > 3 && (
-                                  <li>• +{data.assignments.length - 3} more</li>
-                                )}
-                              </ul>
-                            </>
-                          )}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            ))}
+                    return (
+                      <Tooltip key={`${weekIndex}-${dayIndex}`}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={`h-4 w-4 rounded-sm cursor-pointer transition-colors ${getIntensityClass(data.count)}`}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-xs">
+                            <p className="font-medium">
+                              {format(data.date, 'MMM d, yyyy')} (Week {semesterWeek})
+                            </p>
+                            {data.count === 0 ? (
+                              <p className="text-muted-foreground">No assignments</p>
+                            ) : (
+                              <>
+                                <p>{data.count} assignment{data.count > 1 ? 's' : ''}</p>
+                                <ul className="mt-1">
+                                  {data.assignments.slice(0, 3).map((name, i) => (
+                                    <li key={i} className="truncate max-w-[200px]">• {name}</li>
+                                  ))}
+                                  {data.assignments.length > 3 && (
+                                    <li>• +{data.assignments.length - 3} more</li>
+                                  )}
+                                </ul>
+                              </>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         </div>
 

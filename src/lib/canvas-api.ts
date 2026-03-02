@@ -9,27 +9,35 @@ import type {
 } from './types';
 
 class CanvasAPI {
-  private baseUrl: string;
-  private token: string;
+  // Use our Next.js API proxy to avoid CORS issues
+  private get baseUrl(): string {
+    return '/api/canvas';
+  }
 
-  constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_CANVAS_BASE_URL || '';
-    this.token = process.env.NEXT_PUBLIC_CANVAS_API_TOKEN || '';
+  private get isConfiguredOnClient(): boolean {
+    // Check if the public env vars are set (for the "not configured" message)
+    return Boolean(
+      process.env.NEXT_PUBLIC_CANVAS_BASE_URL &&
+      process.env.NEXT_PUBLIC_CANVAS_API_TOKEN
+    );
   }
 
   private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseUrl}/api/v1${endpoint}`;
+    const url = `${this.baseUrl}${endpoint}`;
+
+    console.log('[Canvas API] Fetching:', url);
 
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${this.token}`,
         'Content-Type': 'application/json',
         ...options.headers,
       },
     });
 
     if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('[Canvas API] Error:', response.status, errorData);
       throw new Error(`Canvas API error: ${response.status} ${response.statusText}`);
     }
 
@@ -151,7 +159,7 @@ class CanvasAPI {
 
   // Helper to check if API is configured
   isConfigured(): boolean {
-    return Boolean(this.baseUrl && this.token);
+    return this.isConfiguredOnClient;
   }
 }
 

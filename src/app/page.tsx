@@ -51,12 +51,12 @@ export default function DashboardPage() {
       {/* Top row - Key metrics */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <DueCountdowns />
-        <GradesOverview />
+        <WorkloadHeatmap />
         <TodoList />
       </div>
 
-      {/* Workload heatmap */}
-      <WorkloadHeatmap />
+      {/* Grades overview */}
+      <GradesOverview />
 
       {/* Bottom row - Lists */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
