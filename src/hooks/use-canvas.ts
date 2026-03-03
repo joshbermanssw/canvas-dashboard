@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import canvasApi from '@/lib/canvas-api';
 import type {
+  User,
   CourseWithGrade,
   Assignment,
   CalendarEvent,
@@ -78,6 +79,11 @@ export function useDiscussions() {
 // To-Do
 export function useTodoItems() {
   return useCanvasData<TodoItem[]>(() => canvasApi.getTodoItems());
+}
+
+// User
+export function useUser() {
+  return useCanvasData<User>(() => canvasApi.getCurrentUser());
 }
 
 // Check if API is configured

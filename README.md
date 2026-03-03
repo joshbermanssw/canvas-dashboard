@@ -2,7 +2,7 @@
 
 A unified dashboard for Canvas LMS that brings everything a student needs into one clean interface.
 
-![Dashboard Screenshot](public/dashboard.png)
+![Dashboard Screenshot](public/canvas-dboard.png)
 
 ## Features
 

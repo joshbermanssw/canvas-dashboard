@@ -1,5 +1,18 @@
 // Canvas API Types
 
+export interface User {
+  id: number;
+  name: string;
+  short_name: string;
+  sortable_name: string;
+  avatar_url: string;
+  email?: string;
+  login_id?: string;
+  bio?: string;
+  primary_email?: string;
+  time_zone?: string;
+}
+
 export interface Course {
   id: number;
   name: string;

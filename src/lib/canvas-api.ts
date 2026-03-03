@@ -1,4 +1,5 @@
 import type {
+  User,
   Course,
   Assignment,
   CalendarEvent,
@@ -155,6 +156,11 @@ class CanvasAPI {
   // To-Do
   async getTodoItems(): Promise<TodoItem[]> {
     return this.fetch<TodoItem[]>('/users/self/todo?per_page=50');
+  }
+
+  // User
+  async getCurrentUser(): Promise<User> {
+    return this.fetch<User>('/users/self/profile');
   }
 
   // Helper to check if API is configured
