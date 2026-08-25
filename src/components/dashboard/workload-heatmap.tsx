@@ -10,17 +10,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Flame } from 'lucide-react';
-import {
-  format,
-  startOfWeek,
-  addDays,
-  isSameDay,
-  addWeeks,
-  differenceInWeeks,
-} from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay, addWeeks } from 'date-fns';
+import { getSemesterWeek, WEEK_STARTS_ON } from '@/lib/semester';
 
-// Semester start date - Week 1 starts Feb 23, 2026 (March 2-8 is Week 2)
-const SEMESTER_START = new Date(2026, 1, 23); // Feb 23, 2026
+const WEEKS_SHOWN = 8;
 
 export function WorkloadHeatmap() {
   const { data: assignments, loading, error } = useUpcomingAssignments();
@@ -28,12 +21,10 @@ export function WorkloadHeatmap() {
   const heatmapData = useMemo(() => {
     if (!assignments) return [];
 
-    const today = new Date();
-    const start = startOfWeek(today, { weekStartsOn: 0 });
-    const weeks = 8; // Show 8 weeks
+    const start = startOfWeek(new Date(), WEEK_STARTS_ON);
     const days: { date: Date; count: number; assignments: string[] }[] = [];
 
-    for (let week = 0; week < weeks; week++) {
+    for (let week = 0; week < WEEKS_SHOWN; week++) {
       for (let day = 0; day < 7; day++) {
         const date = addDays(addWeeks(start, week), day);
         const dayAssignments = assignments.filter(
@@ -50,14 +41,13 @@ export function WorkloadHeatmap() {
     return days;
   }, [assignments]);
 
-  const getSemesterWeek = (weekIndex: number) => {
-    const today = new Date();
-    const currentWeekStart = startOfWeek(today, { weekStartsOn: 0 });
-    const targetWeekStart = addWeeks(currentWeekStart, weekIndex);
-    const semesterStartWeek = startOfWeek(SEMESTER_START, { weekStartsOn: 0 });
-    const weekNumber = differenceInWeeks(targetWeekStart, semesterStartWeek) + 1;
-    return weekNumber;
-  };
+  /** Column headings, resolved once per render from the USYD academic calendar. */
+  const semesterWeeks = useMemo(() => {
+    const start = startOfWeek(new Date(), WEEK_STARTS_ON);
+    return Array.from({ length: WEEKS_SHOWN }, (_, weekIndex) =>
+      getSemesterWeek(addWeeks(start, weekIndex))
+    );
+  }, []);
 
   const getIntensityClass = (count: number) => {
     if (count === 0) return 'bg-muted';
@@ -99,7 +89,7 @@ export function WorkloadHeatmap() {
     );
   }
 
-  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
     <Card>
@@ -115,20 +105,19 @@ export function WorkloadHeatmap() {
           <div className="flex flex-col gap-1 mr-2 mt-5">
             {dayLabels.map((day, i) => (
               <div key={day} className="h-4 text-xs text-muted-foreground flex items-center">
-                {i % 2 === 1 ? day : ''}
+                {i % 2 === 0 ? day : ''}
               </div>
             ))}
           </div>
 
           {/* Heatmap grid */}
           <div className="flex gap-1">
-            {Array.from({ length: 8 }).map((_, weekIndex) => {
-              const semesterWeek = getSemesterWeek(weekIndex);
+            {semesterWeeks.map((semesterWeek, weekIndex) => {
               return (
                 <div key={weekIndex} className="flex flex-col gap-1">
                   {/* Week label */}
                   <div className="h-4 text-xs text-muted-foreground text-center font-medium">
-                    W{semesterWeek}
+                    {semesterWeek.short}
                   </div>
                   {/* Days */}
                   {Array.from({ length: 7 }).map((_, dayIndex) => {
@@ -145,7 +134,7 @@ export function WorkloadHeatmap() {
                         <TooltipContent>
                           <div className="text-xs">
                             <p className="font-medium">
-                              {format(data.date, 'MMM d, yyyy')} (Week {semesterWeek})
+                              {format(data.date, 'MMM d, yyyy')} · {semesterWeek.long}
                             </p>
                             {data.count === 0 ? (
                               <p className="text-muted-foreground">No assignments</p>
