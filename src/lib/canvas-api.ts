@@ -2,6 +2,7 @@ import type {
   User,
   Course,
   Assignment,
+  CalendarEvent,
   Announcement,
   DiscussionTopic,
   TodoItem,
@@ -91,6 +92,14 @@ class CanvasAPI {
         if (!b.due_at) return -1;
         return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
       });
+  }
+
+  // Calendar
+  /** Personal (user-context) Canvas events in a date range. Canvas defaults to the user's own calendar when no context_codes are given. */
+  async getPersonalEvents(startDate: string, endDate: string): Promise<CalendarEvent[]> {
+    return this.fetch<CalendarEvent[]>(
+      `/calendar_events?type=event&start_date=${startDate}&end_date=${endDate}&per_page=100`
+    );
   }
 
   // Announcements
