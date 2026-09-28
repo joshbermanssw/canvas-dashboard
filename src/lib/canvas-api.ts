@@ -2,7 +2,6 @@ import type {
   User,
   Course,
   Assignment,
-  CalendarEvent,
   Announcement,
   DiscussionTopic,
   TodoItem,
@@ -92,36 +91,6 @@ class CanvasAPI {
         if (!b.due_at) return -1;
         return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
       });
-  }
-
-  // Calendar
-  async getCalendarEvents(startDate: string, endDate: string): Promise<CalendarEvent[]> {
-    const courses = await this.getCourses();
-    const contextCodes = courses.map(c => `course_${c.id}`).join('&context_codes[]=');
-
-    return this.fetch<CalendarEvent[]>(
-      `/calendar_events?type=event&start_date=${startDate}&end_date=${endDate}&context_codes[]=${contextCodes}&per_page=100`
-    );
-  }
-
-  async getCalendarAssignments(startDate: string, endDate: string): Promise<CalendarEvent[]> {
-    const courses = await this.getCourses();
-    const contextCodes = courses.map(c => `course_${c.id}`).join('&context_codes[]=');
-
-    return this.fetch<CalendarEvent[]>(
-      `/calendar_events?type=assignment&start_date=${startDate}&end_date=${endDate}&context_codes[]=${contextCodes}&per_page=100`
-    );
-  }
-
-  async getAllCalendarItems(startDate: string, endDate: string): Promise<CalendarEvent[]> {
-    const [events, assignments] = await Promise.all([
-      this.getCalendarEvents(startDate, endDate),
-      this.getCalendarAssignments(startDate, endDate),
-    ]);
-
-    return [...events, ...assignments].sort((a, b) =>
-      new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
-    );
   }
 
   // Announcements

@@ -6,7 +6,6 @@ import type {
   User,
   CourseWithGrade,
   Assignment,
-  CalendarEvent,
   Announcement,
   DiscussionTopic,
   TodoItem,
@@ -56,14 +55,6 @@ export function useAssignments(courseId?: number) {
 
 export function useUpcomingAssignments() {
   return useCanvasData<Assignment[]>(() => canvasApi.getUpcomingAssignments());
-}
-
-// Calendar
-export function useCalendar(startDate: string, endDate: string) {
-  return useCanvasData<CalendarEvent[]>(
-    () => canvasApi.getAllCalendarItems(startDate, endDate),
-    [startDate, endDate]
-  );
 }
 
 // Announcements

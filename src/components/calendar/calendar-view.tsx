@@ -1,18 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCalendar, useCourses } from '@/hooks/use-canvas';
+import { useAssignments, useCourses } from '@/hooks/use-canvas';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-} from 'lucide-react';
+import { AssignmentRow } from '@/components/assignments/assignment-row';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   format,
   startOfMonth,
@@ -26,58 +21,51 @@ import {
   isSameDay,
   isToday,
 } from 'date-fns';
+import { WEEK_STARTS_ON } from '@/lib/semester';
 
+const COURSE_COLORS = [
+  'bg-red-500',
+  'bg-blue-500',
+  'bg-green-500',
+  'bg-yellow-500',
+  'bg-purple-500',
+  'bg-pink-500',
+  'bg-indigo-500',
+  'bg-orange-500',
+];
+
+/**
+ * Month grid of assignment due dates. Uses the same assignment data as the
+ * workload heatmap and "Due Soon" list (all assignments, not just upcoming,
+ * so past months still render).
+ */
 export function CalendarView() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
-  const startDate = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
-  const endDate = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
-
-  const { data: events, loading, error } = useCalendar(startDate, endDate);
+  const { data: assignments, loading, error } = useAssignments();
   const { data: courses } = useCourses();
 
-  const getCourseColor = (contextCode: string) => {
-    const courseId = parseInt(contextCode.replace('course_', ''));
-    const colors = [
-      'bg-red-500',
-      'bg-blue-500',
-      'bg-green-500',
-      'bg-yellow-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-indigo-500',
-      'bg-orange-500',
-    ];
-    return colors[courseId % colors.length];
-  };
-
-  const getCourseName = (contextCode: string) => {
-    const courseId = parseInt(contextCode.replace('course_', ''));
-    return courses?.find(c => c.id === courseId)?.course_code || contextCode;
-  };
+  const getCourseName = (courseId: number) =>
+    courses?.find(c => c.id === courseId)?.course_code || 'Unknown';
 
   const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
-    const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    const calStart = startOfWeek(startOfMonth(currentMonth), WEEK_STARTS_ON);
+    const calEnd = endOfWeek(endOfMonth(currentMonth), WEEK_STARTS_ON);
 
     const days: Date[] = [];
-    let day = calStart;
-    while (day <= calEnd) {
+    for (let day = calStart; day <= calEnd; day = addDays(day, 1)) {
       days.push(day);
-      day = addDays(day, 1);
     }
     return days;
   }, [currentMonth]);
 
-  const getEventsForDate = (date: Date) => {
-    if (!events) return [];
-    return events.filter(event => isSameDay(new Date(event.start_at), date));
-  };
+  const getAssignmentsForDate = (date: Date) =>
+    (assignments ?? [])
+      .filter(a => a.due_at && isSameDay(new Date(a.due_at), date))
+      .sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime());
 
-  const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
+  const selectedAssignments = selectedDate ? getAssignmentsForDate(selectedDate) : [];
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -118,10 +106,12 @@ export function CalendarView() {
         <CardContent>
           {loading ? (
             <Skeleton className="h-96 w-full" />
+          ) : error ? (
+            <p className="text-sm text-muted-foreground">Failed to load assignments</p>
           ) : (
             <div className="grid grid-cols-7 gap-px bg-muted rounded-lg overflow-hidden">
               {/* Day headers */}
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
                 <div
                   key={day}
                   className="bg-background p-2 text-center text-sm font-medium text-muted-foreground"
@@ -131,14 +121,14 @@ export function CalendarView() {
               ))}
 
               {/* Calendar days */}
-              {calendarDays.map((day, index) => {
-                const dayEvents = getEventsForDate(day);
+              {calendarDays.map(day => {
+                const dayAssignments = getAssignmentsForDate(day);
                 const isSelected = selectedDate && isSameDay(day, selectedDate);
                 const isCurrentMonth = isSameMonth(day, currentMonth);
 
                 return (
                   <button
-                    key={index}
+                    key={day.toISOString()}
                     onClick={() => setSelectedDate(day)}
                     className={`
                       bg-background p-2 min-h-24 text-left transition-colors hover:bg-muted
@@ -155,21 +145,20 @@ export function CalendarView() {
                       {format(day, 'd')}
                     </span>
                     <div className="mt-1 space-y-1">
-                      {dayEvents.slice(0, 3).map((event, i) => (
+                      {dayAssignments.slice(0, 3).map(assignment => (
                         <div
-                          key={i}
-                          className={`
-                            flex items-center gap-1 rounded px-1 text-xs truncate
-                            ${getCourseColor(event.context_code)} text-white
-                          `}
+                          key={assignment.id}
+                          className="flex items-center gap-1 rounded border px-1 text-xs"
                         >
-                          {event.type === 'assignment' ? '📝' : '📅'}
-                          <span className="truncate">{event.title}</span>
+                          <span
+                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${COURSE_COLORS[assignment.course_id % COURSE_COLORS.length]}`}
+                          />
+                          <span className="truncate">{assignment.name}</span>
                         </div>
                       ))}
-                      {dayEvents.length > 3 && (
+                      {dayAssignments.length > 3 && (
                         <div className="text-xs text-muted-foreground px-1">
-                          +{dayEvents.length - 3} more
+                          +{dayAssignments.length - 3} more
                         </div>
                       )}
                     </div>
@@ -190,39 +179,16 @@ export function CalendarView() {
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[500px] pr-4">
-            {selectedDateEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No events on this day</p>
+            {selectedAssignments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nothing due on this day</p>
             ) : (
               <div className="space-y-3">
-                {selectedDateEvents.map(event => (
-                  <a
-                    key={event.id}
-                    href={event.html_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block rounded-lg border p-3 transition-colors hover:bg-muted"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className={`h-2 w-2 rounded-full ${getCourseColor(event.context_code)}`}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {getCourseName(event.context_code)}
-                          </span>
-                        </div>
-                        <p className="font-medium text-sm">{event.title}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(event.start_at), 'h:mm a')}
-                        </p>
-                        <Badge variant="outline" className="mt-2 text-xs">
-                          {event.type === 'assignment' ? 'Assignment' : 'Event'}
-                        </Badge>
-                      </div>
-                      <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                    </div>
-                  </a>
+                {selectedAssignments.map(assignment => (
+                  <AssignmentRow
+                    key={assignment.id}
+                    assignment={assignment}
+                    courseName={getCourseName(assignment.course_id)}
+                  />
                 ))}
               </div>
             )}
