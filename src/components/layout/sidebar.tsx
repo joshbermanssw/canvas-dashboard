@@ -13,6 +13,7 @@ import {
   Bell,
   MessageSquare,
   CheckSquare,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/todo', label: 'To-Do', icon: CheckSquare },
   { href: '/announcements', label: 'Announcements', icon: Bell },
   { href: '/discussions', label: 'Discussions', icon: MessageSquare },
+  { href: '/study', label: 'Study', icon: BookOpen },
 ];
 
 export function Sidebar() {
@@ -59,7 +61,8 @@ export function Sidebar() {
       <nav className="space-y-1 p-4">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          // Nested routes (e.g. /study/infs1020) keep their section highlighted.
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <Link
