@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowLeft, ChevronRight, ExternalLink } from 'lucide-react';
-import type { PracticeQuestion, StudyGuide, Topic } from '@/lib/study/types';
+import type { ExamSection, PracticeQuestion, StudyGuide, Topic } from '@/lib/study/types';
+import { OpenLinkedDetails } from './open-linked-details';
 
 const SYDNEY = 'Australia/Sydney';
 
@@ -27,11 +28,14 @@ function sydneyDaysBetween(from: Date, to: Date): number {
   return Math.round((day(to) - day(from)) / 86_400_000);
 }
 
-function countdownLabel(days: number): string {
+/** Header countdown. The exam counts as finished from the moment it ends, not from midnight. */
+function countdownLabel(now: Date, examStart: Date, durationMinutes: number): string {
+  if (now.getTime() >= examStart.getTime() + durationMinutes * 60_000) return 'Finished';
+
+  const days = sydneyDaysBetween(now, examStart);
   if (days > 1) return `${days} days away`;
   if (days === 1) return 'Tomorrow';
-  if (days === 0) return 'Today';
-  return 'Finished';
+  return 'Today';
 }
 
 function formatDuration(minutes: number): string {
@@ -52,12 +56,17 @@ const bulletList = 'list-disc space-y-1.5 pl-5 text-sm leading-relaxed marker:te
 export function StudyGuidePage({ guide, now }: { guide: StudyGuide; now: Date }) {
   const { exam } = guide;
   const examStart = new Date(exam.startsAt);
-  const totalPoints = exam.sections.reduce((sum, section) => sum + section.points, 0);
-  const canvasBaseUrl = process.env.NEXT_PUBLIC_CANVAS_BASE_URL;
+  // Same fallback order as the Canvas proxy route, so both agree on which Canvas this is.
+  const canvasBaseUrl = process.env.CANVAS_BASE_URL || process.env.NEXT_PUBLIC_CANVAS_BASE_URL;
 
   const facts = [
     { label: 'Date', value: examDateFormat.format(examStart) },
-    { label: 'Start', value: `${examTimeFormat.format(examStart)}, arrive by ${exam.arriveBy}` },
+    {
+      label: 'Start',
+      value: exam.arriveBy
+        ? `${examTimeFormat.format(examStart)}, arrive by ${exam.arriveBy}`
+        : examTimeFormat.format(examStart),
+    },
     {
       label: 'Length',
       value: `${formatDuration(exam.durationMinutes)}, including ${exam.readingMinutes} min reading time`,
@@ -69,6 +78,7 @@ export function StudyGuidePage({ guide, now }: { guide: StudyGuide; now: Date })
 
   return (
     <article className="mx-auto max-w-3xl space-y-12 pb-16">
+      <OpenLinkedDetails />
       <header className="space-y-3">
         <Link
           href="/study"
@@ -79,7 +89,7 @@ export function StudyGuidePage({ guide, now }: { guide: StudyGuide; now: Date })
         </Link>
         <h1 className="text-3xl font-bold tracking-tight">{guide.courseCode} final exam</h1>
         <p className="text-muted-foreground">
-          {guide.courseName} · {countdownLabel(sydneyDaysBetween(now, examStart))}
+          {guide.courseName} · {countdownLabel(now, examStart, exam.durationMinutes)}
         </p>
         <nav className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
           {[
@@ -111,38 +121,7 @@ export function StudyGuidePage({ guide, now }: { guide: StudyGuide; now: Date })
 
         <div className="space-y-2">
           <h3 className={subHeading}>Paper structure</h3>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-muted-foreground">
-                <th className="py-2 font-normal">Section</th>
-                <th className="py-2 text-right font-normal">Questions</th>
-                <th className="py-2 text-right font-normal">Points</th>
-                <th className="py-2 text-right font-normal">Suggested time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {exam.sections.map(section => (
-                <tr key={section.name} className="border-b">
-                  <td className="py-2">{section.name}</td>
-                  <td className="py-2 text-right tabular-nums">{section.questions}</td>
-                  <td className="py-2 text-right tabular-nums">{section.points}</td>
-                  <td className="py-2 text-right tabular-nums">{section.recommendedMinutes} min</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="font-medium">
-                <td className="py-2">Total</td>
-                <td className="py-2 text-right tabular-nums">
-                  {exam.sections.reduce((sum, section) => sum + section.questions, 0)}
-                </td>
-                <td className="py-2 text-right tabular-nums">{totalPoints}</td>
-                <td className="py-2 text-right tabular-nums">
-                  {exam.sections.reduce((sum, section) => sum + section.recommendedMinutes, 0)} min
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+          <PaperStructure sections={exam.sections} />
         </div>
 
         <div className="space-y-2">
@@ -199,14 +178,16 @@ export function StudyGuidePage({ guide, now }: { guide: StudyGuide; now: Date })
           <h2 id="topics" className={sectionHeading}>
             Topics by week
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Each week is split the way the lecturer says to revise: concepts to explain, frameworks to apply,
-            challenges to assess a situation with, and strategies to respond.
-          </p>
+          <p className="text-sm text-muted-foreground">{guide.topicsNote}</p>
         </div>
         <div className="border-t">
           {guide.topics.map(topic => (
-            <TopicSection key={topic.week} topic={topic} />
+            <TopicSection
+              key={topic.week}
+              topic={topic}
+              frameworksHeading={guide.frameworksHeading}
+              examplesHeading={guide.examplesHeading}
+            />
           ))}
         </div>
       </section>
@@ -250,7 +231,15 @@ export function StudyGuidePage({ guide, now }: { guide: StudyGuide; now: Date })
 const disclosureSummary =
   'flex cursor-pointer list-none items-baseline gap-3 py-3 hover:text-muted-foreground [&::-webkit-details-marker]:hidden';
 
-function TopicSection({ topic }: { topic: Topic }) {
+function TopicSection({
+  topic,
+  frameworksHeading,
+  examplesHeading,
+}: {
+  topic: Topic;
+  frameworksHeading: string;
+  examplesHeading: string;
+}) {
   return (
     <details id={`week-${topic.week}`} className="group scroll-mt-20 border-b">
       <summary className={disclosureSummary}>
@@ -275,7 +264,7 @@ function TopicSection({ topic }: { topic: Topic }) {
         </div>
 
         <div className="space-y-4">
-          <h3 className={subHeading}>Frameworks</h3>
+          <h3 className={subHeading}>{frameworksHeading}</h3>
           {topic.frameworks.map(framework => (
             <div key={framework.name} className="space-y-1.5">
               <p className="text-sm">
@@ -291,9 +280,26 @@ function TopicSection({ topic }: { topic: Topic }) {
           ))}
         </div>
 
+        {topic.formulas && topic.formulas.length > 0 && (
+          <div className="space-y-2">
+            <h3 className={subHeading}>Formulas</h3>
+            <dl className="space-y-3 text-sm leading-relaxed">
+              {topic.formulas.map(formula => (
+                <div key={formula.name}>
+                  <dt>
+                    <span className="font-medium">{formula.name}:</span>{' '}
+                    <span className="font-mono text-[0.8125rem]">{formula.formula}</span>
+                  </dt>
+                  {formula.note && <dd className="text-muted-foreground">{formula.note}</dd>}
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+
         <BulletBlock title="Challenges" items={topic.challenges} />
         <BulletBlock title="Strategies" items={topic.strategies} />
-        <BulletBlock title="Examples to quote" items={topic.examples} />
+        <BulletBlock title={examplesHeading} items={topic.examples} />
 
         {topic.reading && (
           <div className="space-y-1.5">
@@ -341,30 +347,132 @@ function PracticeQuestionSection({ question }: { question: PracticeQuestion }) {
         ))}
       </ol>
 
-      <details className="group">
-        <summary className={`${disclosureSummary} py-1 text-sm`}>
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 self-center transition-transform group-open:rotate-90" />
-          Material to draw on
-        </summary>
-        <div className="space-y-2 pl-6 pt-1">
+      {question.answer && (
+        <Disclosure label="Worked answer">
+          <ol className="space-y-2 text-sm leading-relaxed">
+            {question.answer.map((step, index) => (
+              <li key={step} className="flex gap-3">
+                <span className="w-4 shrink-0 text-muted-foreground">
+                  {question.answer?.length === question.parts.length ? `${String.fromCharCode(97 + index)})` : '·'}
+                </span>
+                <span className="whitespace-pre-line">{step}</span>
+              </li>
+            ))}
+          </ol>
+          <ReviseLinks weeks={question.weeks} />
+        </Disclosure>
+      )}
+
+      {question.drawOn && (
+        <Disclosure label="Material to draw on">
           <ul className={bulletList}>
             {question.drawOn.map(item => (
               <li key={item}>{item}</li>
             ))}
           </ul>
-          <p className="text-sm text-muted-foreground">
-            Revise:{' '}
-            {question.weeks.map((week, index) => (
-              <span key={week}>
-                {index > 0 && ', '}
-                <a href={`#week-${week}`} className="underline underline-offset-4 hover:text-foreground">
-                  Week {week}
-                </a>
-              </span>
-            ))}
-          </p>
-        </div>
-      </details>
+          <ReviseLinks weeks={question.weeks} />
+        </Disclosure>
+      )}
     </div>
+  );
+}
+
+function Disclosure({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details className="group">
+      <summary className={`${disclosureSummary} py-1 text-sm`}>
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 self-center transition-transform group-open:rotate-90" />
+        {label}
+      </summary>
+      <div className="space-y-2 pl-6 pt-1">{children}</div>
+    </details>
+  );
+}
+
+function ReviseLinks({ weeks }: { weeks: number[] }) {
+  return (
+    <p className="text-sm text-muted-foreground">
+      Revise:{' '}
+      {weeks.map((week, index) => (
+        <span key={week}>
+          {index > 0 && ', '}
+          <a href={`#week-${week}`} className="underline underline-offset-4 hover:text-foreground">
+            Week {week}
+          </a>
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/** A section with a published marks breakdown, which the paper-structure table needs. */
+type MarkedSection = ExamSection & { questions: number; points: number; recommendedMinutes: number };
+
+function isMarked(section: ExamSection): section is MarkedSection {
+  return (
+    section.questions !== undefined && section.points !== undefined && section.recommendedMinutes !== undefined
+  );
+}
+
+/**
+ * The paper's sections: a marks table when every section publishes questions,
+ * points and suggested time, otherwise a plain list of the question types.
+ */
+function PaperStructure({ sections }: { sections: ExamSection[] }) {
+  const marked = sections.filter(isMarked);
+
+  if (marked.length !== sections.length) {
+    return (
+      <dl className="space-y-3 text-sm leading-relaxed">
+        {sections.map(section => (
+          <div key={section.name}>
+            <dt className="font-medium">
+              {section.name}
+              {section.questions !== undefined && (
+                <span className="font-normal text-muted-foreground"> · {section.questions} questions</span>
+              )}
+            </dt>
+            {section.detail && <dd className="text-muted-foreground">{section.detail}</dd>}
+          </div>
+        ))}
+      </dl>
+    );
+  }
+
+  const total = (pick: (section: MarkedSection) => number) => marked.reduce((sum, section) => sum + pick(section), 0);
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b text-left text-xs text-muted-foreground">
+          <th className="py-2 font-normal">Section</th>
+          <th className="py-2 text-right font-normal">Questions</th>
+          <th className="py-2 text-right font-normal">Points</th>
+          <th className="py-2 text-right font-normal">Suggested time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {marked.map(section => (
+          <tr key={section.name} className="border-b">
+            <td className="py-2">{section.name}</td>
+            <td className="py-2 text-right tabular-nums">{section.questions}</td>
+            <td className="py-2 text-right tabular-nums">{section.points}</td>
+            <td className="py-2 text-right tabular-nums">{section.recommendedMinutes} min</td>
+          </tr>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr className="font-medium">
+          <td className="py-2">Total</td>
+          <td className="py-2 text-right tabular-nums">
+            {total(section => section.questions)}
+          </td>
+          <td className="py-2 text-right tabular-nums">{total(section => section.points)}</td>
+          <td className="py-2 text-right tabular-nums">
+            {total(section => section.recommendedMinutes)} min
+          </td>
+        </tr>
+      </tfoot>
+    </table>
   );
 }
