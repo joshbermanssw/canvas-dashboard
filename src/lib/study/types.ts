@@ -1,6 +1,6 @@
 /**
  * One section or question type of the exam paper. Papers that publish a full
- * marks breakdown set `points` and `recommendedMinutes` on every section and
+ * marks breakdown set `questions`, `points` and `recommendedMinutes` on every section and
  * render as a table; otherwise the sections render as a list with `detail`.
  */
 export interface ExamSection {

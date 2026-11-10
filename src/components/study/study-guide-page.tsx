@@ -348,12 +348,15 @@ function PracticeQuestionSection({ question }: { question: PracticeQuestion }) {
       </ol>
 
       {question.answer && (
+        // Answers line up with parts a), b), c); any extra closing lines get a plain marker.
         <Disclosure label="Worked answer">
           <ol className="space-y-2 text-sm leading-relaxed">
             {question.answer.map((step, index) => (
               <li key={step} className="flex gap-3">
                 <span className="w-4 shrink-0 text-muted-foreground">
-                  {question.answer?.length === question.parts.length ? `${String.fromCharCode(97 + index)})` : '·'}
+                  {(question.answer?.length ?? 0) >= question.parts.length && index < question.parts.length
+                    ? `${String.fromCharCode(97 + index)})`
+                    : '·'}
                 </span>
                 <span className="whitespace-pre-line">{step}</span>
               </li>
