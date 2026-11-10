@@ -75,6 +75,11 @@ export const infs1020: StudyGuide = {
     },
   ],
 
+  frameworksHeading: 'Frameworks',
+  examplesHeading: 'Examples to quote',
+  topicsNote:
+    'Each week is split the way the lecturer says to revise: concepts to explain, frameworks to apply, challenges to assess a situation with, and strategies to respond.',
+
   topics: [
     {
       week: 2,

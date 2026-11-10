@@ -1,15 +1,20 @@
-/** One marked section of the exam paper, as listed on the exam's Canvas site. */
+/**
+ * One section or question type of the exam paper. Papers that publish a full
+ * marks breakdown set `questions`, `points` and `recommendedMinutes` on every section and
+ * render as a table; otherwise the sections render as a list with `detail`.
+ */
 export interface ExamSection {
   name: string;
-  questions: number;
-  points: number;
-  recommendedMinutes: number;
+  detail?: string;
+  questions?: number;
+  points?: number;
+  recommendedMinutes?: number;
 }
 
 export interface Exam {
   /** ISO 8601 with offset, so the countdown is correct in any timezone. */
   startsAt: string;
-  arriveBy: string;
+  arriveBy?: string;
   durationMinutes: number;
   readingMinutes: number;
   /** Share of the final unit mark, in percent. */
@@ -31,6 +36,13 @@ export interface Framework {
   points: string[];
 }
 
+/** A law or equation a calculation question could need. `note` defines the symbols. */
+export interface Formula {
+  name: string;
+  formula: string;
+  note?: string;
+}
+
 export interface Reading {
   citation: string;
   kind: 'reading' | 'viewing';
@@ -38,9 +50,8 @@ export interface Reading {
 }
 
 /**
- * One teaching week. The four lists mirror the "organising devices" the unit
- * coordinator says the exam is built on: concepts to explain, frameworks to
- * apply, challenges to assess a situation with, and strategies to respond.
+ * One teaching week. Every guide has concepts and frameworks; the optional
+ * lists are filled in only where the course's exam calls for them.
  */
 export interface Topic {
   week: number;
@@ -48,9 +59,10 @@ export interface Topic {
   summary: string;
   concepts: Concept[];
   frameworks: Framework[];
+  formulas?: Formula[];
   challenges?: string[];
   strategies?: string[];
-  /** Named cases from the lecture that can be quoted as evidence in an answer. */
+  /** Named cases or worked scenarios from the lecture. */
   examples?: string[];
   reading?: Reading;
 }
@@ -60,8 +72,10 @@ export interface PracticeQuestion {
   scenario?: string;
   parts: string[];
   weeks: number[];
-  /** Lecture material worth drawing on. Not a model answer. */
-  drawOn: string[];
+  /** Lecture material worth drawing on, for open questions with no set answer. */
+  drawOn?: string[];
+  /** Worked answer from the course's own solutions, one entry per part where possible. */
+  answer?: string[];
 }
 
 export interface StudyGuide {
@@ -74,6 +88,12 @@ export interface StudyGuide {
   expectations: string[];
   notAsked: string[];
   advice: { title: string; detail: string }[];
+  /** Heading for each topic's `frameworks` list, e.g. "Frameworks". */
+  frameworksHeading: string;
+  /** Heading for each topic's `examples` list. */
+  examplesHeading: string;
+  /** One line above the weekly topics saying how they are organised. */
+  topicsNote: string;
   topics: Topic[];
   practiceQuestions: PracticeQuestion[];
   practiceNote: string;
